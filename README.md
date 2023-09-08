@@ -3,11 +3,11 @@ vchat-webrtc-php-d7
 
 See: https://peacocksoftware.com/blog/webrtc-video-chat-only-php-and-javascript-no-nodejs-or-websockets for full explanation.
 
-
 View the .module file for the PHP code.
 
 Based heavily on the code from https://github.com/nielsbaloe/webrtc-php.
 
+## This is a Demo
 
 This is technically a Drupal 7 module, but you can use it as a starting point for any PHP project.  Notice the db_query() commands.  Replace those with direct pdo or mysqli or whatever database engine you elect to use.
 
@@ -15,5 +15,6 @@ For those not familiar with Drupal 7, the _menu() function lists the available U
 
 In this demonstration, an action happens every 5 seconds.  In a production project, you'd want to make that faster, and then stop checking for actions while connected.
 
-As this is just meant for demo code, please do not leave any issues asking for help implementing it; I will not be able to answer.
-That said, my business, https://peacocksoftware.com, is available for paid support and custom programming.  Feel free to visit the "Contact" page for more information.
+## Support?
+As this is just meant for demo code, please do not leave any issues asking for help implementing it.
+That said, my business, https://peacocksoftware.com, is available for paid support and custom programming.  Feel free to visit the "Contact" page for more information on how to hire us to help with your project.
