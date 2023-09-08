@@ -1,0 +1,22 @@
+
+.video-stream {
+  width: 500px;
+  height: auto;
+  object-fit: contain;
+}
+
+
+#local-video {
+  width: 100%;
+  height: 100%;
+}
+
+
+#remote-video {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 9999;
+  zzzbackground-color: black;
+  
+}

@@ -1,0 +1,211 @@
+<?php
+
+
+
+function vchat_menu() {
+  
+  $items = array();
+  
+  
+  $items['vchat-start'] = array(
+    'title' => 'vchat start',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('vchat_start_form'),
+    'access arguments' => array('access devel information'),
+  );
+  
+  $items['vchat'] = array(
+    'title' => 'Video Chat using WebRTC',
+    'page callback' => 'vchat_display_vchat',
+    'access arguments' => array('access devel information'),
+  );
+  
+  $items['vchat-get-eventsource'] = array(    
+    'page callback' => 'vchat_output_eventsource',
+    'access arguments' => array('access devel information'),
+  );  
+  
+  $items['vchat-ajax-send-message'] = array(    
+    'page callback' => 'vchat_ajax_send_message',
+    'access arguments' => array('access devel information'),
+  );    
+  
+  
+  return $items;
+  
+} // hook_menu
+
+
+
+
+function vchat_start_form() {
+  $form = array();
+  
+  $form['part_type'] = array(
+    '#title' => 'Type of participant',
+    '#type' => 'select',
+    '#options' => array('host'=>'host', 'guest'=>'guest'),
+    '#default_value' => 'host',
+    '#required' => TRUE,
+  );
+  
+  
+  $form['submitbtn'] = array(
+    '#type' => 'submit',
+    '#value' => 'Submit and start vchat'
+  );
+  
+  return $form;
+  
+}
+
+function vchat_start_form_submit($form, &$form_state) {
+  $part_type = $form_state['values']['part_type'];
+  
+  if ($part_type == 'host') {
+    db_query('TRUNCATE TABLE vchat');
+    dpm('Truncated vchat table');
+    
+    drupal_goto('vchat', array('query' => array('h' => 'yes')));
+  }
+  else {
+    drupal_goto('vchat');
+  }
+  
+}
+
+
+
+
+
+
+
+function vchat_ajax_send_message() {
+  global $user;
+  
+  header("X-Accel-Buffering: no");
+  header("Content-Type: text/event-stream"); 
+  header("Cache-Control: no-cache"); 
+  
+  
+  watchdog("debug", "Got from post: <pre>" . print_r($_POST, TRUE) . "</pre>");
+  
+  $msg = json_decode($_POST['msg'], TRUE);
+  
+  $event = trim($msg['event']);  
+  $data = $msg['data'];  // don't trim!  This may be an array.
+  $chat_room_id = trim($msg['chat_room_id']);
+  
+  $json = array(
+    'event' => $event,
+    'data' => $data,
+  );
+  
+  
+  // Add to the database table.
+  //db_query("DELETE FROM vchat WHERE uid = ? AND chat_room_id = ?", array($user->uid, $chat_room_id));
+  
+  db_query("INSERT INTO vchat (uid, chat_room_id, package_event, message, posted) 
+                   VALUES (?, ?, ?, ?, NOW())", array($user->uid, $chat_room_id, $event, json_encode($json)));
+  
+  
+  
+  //print "SUCCESS";
+  die;
+  
+} // .. ajax_send_message
+
+
+
+
+
+
+
+/**
+ * Outputs the expected text to create a javascript "event source" object.
+ */
+function vchat_output_eventsource() {
+  global $user;
+  
+  $chat_room_id = 'abc123xyz';  // Dev-- in prod this would be already generated from something else.
+  
+  
+  header("X-Accel-Buffering: no");
+  header("Content-Type: text/event-stream"); 
+  header("Cache-Control: no-cache");  
+
+  //print 'data: ' . json_encode(array("event" => "hey there")) . PHP_EOL;
+  
+  // query table to find out if there is an action waiting on us.
+  
+  $res = db_query("SELECT * FROM vchat 
+                    WHERE uid != ?
+                    AND chat_room_id = ?
+                    AND processed = 0
+                    ORDER BY vcid
+                    LIMIT 1", array($user->uid, $chat_room_id));
+  foreach ($res as $cur) {  // Even though I am using foreach, we're only going to do a single result.
+    
+    $vcid = $cur->vcid;
+  
+    print 'data: ' . $cur->message . PHP_EOL;
+    
+    // Now, mark as processed.
+    db_query('UPDATE vchat SET processed = 1 WHERE vcid = ?', array($vcid));  
+    break;
+  }
+  
+  
+  
+  print 'retry: 3000' . PHP_EOL . PHP_EOL; // tell it to check again soon.
+    
+  die;  
+
+  
+} // .. output_eventsource
+
+
+
+
+
+
+
+
+/**
+ * This displays the main chat screen where two users can chat with each other.
+ */
+function vchat_display_vchat() {
+  global $user;
+  
+  $rtn = "";
+  
+  // DEV:
+  $chat_room_id = 'abc123xyz';  // Dev-- in prod this would be already generated from something else.
+  
+  // Find out, am I the host?  For now, look to see if "h" isset to anything.
+  $bool_is_host = FALSE;
+  if (isset($_REQUEST['h'])) {
+    $bool_is_host = TRUE;
+  }
+    
+  drupal_add_js(array('uid' => $user->uid, 
+                      'chat_room_id' => $chat_room_id,
+                      'vchat_is_host' => $bool_is_host,
+                      ), 'setting');
+                      
+                        
+  drupal_add_js(drupal_get_path('module', 'vchat') . '/js/vchat.js');
+  drupal_add_css(drupal_get_path('module', 'vchat') . '/css/vchat.css');
+
+  
+  // The HTML for the page itself.
+ 
+  $rtn .= "<div>
+            <video class='video-stream' id='local-video' autoplay='true' muted></video>
+            <video class='video-stream' id='remote-video' autoplay='true' ></video>
+          </div>";
+  
+  
+  
+  return $rtn;
+} // ..display_vchat
